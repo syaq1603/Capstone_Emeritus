@@ -1,0 +1,30 @@
+# Core
+numpy==1.26.4
+pandas>=2.1,<2.3
+requests==2.32.4
+python-dotenv>=1.0,<2
+pydantic>=2,<3
+
+# Web
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# LangChain + vector DB
+langchain>=0.3.27
+langchain-community>=0.3.27
+langchain-openai>=0.2.6
+langchain-chroma>=0.1.2
+chromadb>=0.5.5
+
+# Embeddings / models
+sentence-transformers>=3.2,<6
+
+# PDF support for loaders
+pypdf>=4.2
+
+# Needed for DataFrame -> markdown tables (fixes your error)
+tabulate>=0.9
+
+
+
