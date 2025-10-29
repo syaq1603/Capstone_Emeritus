@@ -1,285 +1,249 @@
-**Diabetes Clinic Assistant (Browser)**
-========================================
+# 🩺 Diabetes Clinic Assistant (Browser)
 
-A patient- and staff-friendly web app for diabetes education and clinic support.
-It provides 
-1) a conversational interface with limited memory, 
-2) Document Q&A via RAG, 
-3) text-to-image generation, 
-4) multi-agent tools (Weather / SQL / Recommender), 
-5) and glucose safety triage (educational).
-------------------------------------------------------------------------------------------------------------------------------
-Tech stack: FastAPI · OpenAI Chat (RAG) · Chroma (vector DB) · Sentence-Transformers (embeddings) · Replicate (images) · WeatherAPI.com (weather)
+**A patient- and staff-friendly web app for diabetes education and clinic support.**
 
-== Features ==
+This prototype provides:
+1. Conversational interface with limited memory  
+2. Document-based Question Answering (RAG)  
+3. Text-to-image generation  
+4. Multi-agent tools (Weather / SQL / Recommender)  
+5. Glucose safety triage (educational only)
 
-- Conversational interface (browser UI)
-- Multi-turn chat with a rolling short-term memory.
-- Inline image display in chat.
-- RAG over clinic documents
-- Upload PDF/TXT; assistant answers with citations.
-- Multi-agent controller
-- weather: <Singapore> — current conditions (WeatherAPI).
-- sql: SELECT … — demo SQLite catalog (read-only).
-- recommend … — content-based suggestions (MiniLM).
-- image: … — educational visual generation (Replicate).
-- glucose: … — non-diagnostic triage (red/amber/green).
-- Fallback to RAG when no prefix is used.
-- Landing page
-- Clear instructions for Patients and Staff; stacked, compact buttons.
-- Clinical safety: Educational only. Not a medical device.
-- Patients should follow their clinician’s plan and local emergency guidance.
+---
 
-== System Overview ==
+### 🧰 Tech Stack
+**FastAPI** · **OpenAI Chat (RAG)** · **Chroma (Vector DB)** · **Sentence-Transformers (Embeddings)** · **Replicate (Images)** · **WeatherAPI.com (Weather)**
 
-[ Browser UI ]  ───────────────>  [ FastAPI Controller ]
-                               ┌─────────────────────────────────────────┐
-                               │ Intent Router (last N turns memory)     │
-                               │                                         │
-                               │  RAG → Chroma + MiniLM embeddings        │
-                               │  Weather → WeatherAPI.com                │
-                               │  SQL → SQLite demo (read-only)           │
-                               │  Recommender → MiniLM similarity         │
-                               │  Text-to-Image → Replicate flux-dev      │
-                               │  Glucose Triage → rules + thresholds     │
-                               └─────────────────────────────────────────┘
+---
 
-== Quickstart (Local) ==
-1) Clone & create a venv
+## ✨ Features Overview
+
+### 🗣 Conversational Interface
+- Browser-based multi-turn chat with short-term memory (`MAX_TURNS = 6`)
+- Inline image display
+- Rolling session context with limited memory (privacy-safe)
+
+### 📚 Document Q&A (RAG)
+- Upload PDFs or text files  
+- Assistant answers with contextual retrieval and citations  
+- Persistent Chroma vector index for reuse across restarts  
+
+### 🤖 Multi-Agent Controller
+Handles multiple tasks seamlessly:
+- `weather: Singapore` — fetches live conditions via WeatherAPI  
+- `sql: SELECT ...` — executes read-only SQLite queries  
+- `recommend ...` — content-based suggestions (MiniLM vectors)  
+- `image: ...` — text-to-image via Replicate  
+- `glucose: ...` — rule-based non-diagnostic triage (red/amber/green)  
+- Fallback: document-grounded RAG answers  
+
+### 💡 Clinical Safety
+> **Educational use only.**  
+> Not a diagnostic tool — patients should always follow clinician guidance.
+
+---
+
+## 🏗️ System Overview
+
+```text
+User
+  │
+  ▼
+┌────────────────────────── Controller / Router ────────────────────────────┐
+│ Uses last N turns (Short Memory: MAX_TURNS=6)                             │
+│ Supports batch commands: e.g. "recommend …; weather: Singapore"           │
+│                                                                            │
+│  ┌────────────── RAG ──────────────┐   ┌──── Weather Agent ────┐          │
+│  │ Chroma Vector Store (persistent)│   │ WeatherAPI.com         │          │
+│  │  ↑ Embeddings: HuggingFace      │   └────────────────────────┘          │
+│  │  │ (all-MiniLM-L6-v2)           │                                       │
+│  └──┴──────────────────────────────┘   ┌────── SQL Agent ──────┐           │
+│                                        │ SQLite (in-memory)     │           │
+│  ┌────────── Recommender ──────────┐   │ check_same_thread=False │          │
+│  │ Content-based (MiniLM vectors)  │   │ + DB_LOCK (thread-safe) │          │
+│  │ (uses Weather hints optionally) │   └─────────────────────────┘          │
+│  └─────────────────────────────────┘                                        │
+│                                                                            │
+│  ┌──────── Glucose Triage Agent ───────┐   ┌──── Image Generator ─────────┐│
+│  │ RED/AMBER/GREEN (educational)       │   │ Replicate (flux-dev) + prompts││
+│  └─────────────────────────────────────┘   └───────────────────────────────┘│
+└────────────────────────────────────────────────────────────────────────────┘
+  │
+  ▼
+Final response (text + citations + optional image URL)
+
+⚙️ Quickstart (Local)
+1️⃣ Clone & Create a Virtual Environment
 git clone <your-repo-url>
-cd <repo>
+cd Capstone_Emeritus
 python -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
+source .venv/bin/activate      # (Windows: .venv\Scripts\activate)
 
-2) Install dependencies
+2️⃣ Install Dependencies
 pip install -r requirements.txt
-
-If upload errors mention python-multipart:
-
+# If upload fails:
 pip install python-multipart
 
-3) Environment variables
-
-Create a .env in project root (or export in your shell):
-
-OPENAI_API_KEY=sk-...
+3️⃣ Environment Variables
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 OPENAI_MODEL=gpt-4o-mini
 INDEX_DIR=chroma_index
 MAX_TURNS=6
 PORT=9000
 
-WEATHER_API_KEY=your_weatherapi_com_key
-REPLICATE_API_TOKEN=r8_...  # replicate.com
+WEATHER_API_KEY=your_weatherapi_key
+REPLICATE_API_TOKEN=YOUR_REPLICATE_TOKEN  # replicate.com
 
-4) Run the server
+4️⃣ Run the Server
 PORT=9000 python app.py
-# or with hot reload:
+# or
 uvicorn app:app --host 0.0.0.0 --port 9000 --reload
 
+💬 Using the App
+🏠 Landing Page (/)
 
-Open: http://127.0.0.1:9000/
+Clear “Patient” and “Staff” buttons
 
-== Using the App ==
-Landing page (/)
+Staff → Upload documents
 
-= Patients = : click Open Chat, ask questions, check glucose readings, generate visuals, check weather.
+Patients → Open chat
 
-= Staff = : click Upload Documents to add PDFs/TXT; ask RAG questions in chat; check System Status.
+📤 Upload Documents (/upload.html)
 
-= Upload documents (/upload.html)
+Accepts .pdf and .txt
 
-= Select .pdf or .txt → submit → index updates immediately.
+Immediately updates Chroma index (INDEX_DIR)
 
-= Chroma persists at INDEX_DIR.
+💬 Chat (/chat.html)
 
-= Chat (/chat.html)
+Example prompts:
+RAG:
+"What is the plate method?"
+"Summarize pre-meal glucose targets from my docs."
 
-Try examples:
+Glucose triage:
+"glucose: 3.2 mmol/L before breakfast shaky"
+"7.8 after dinner"
+"220 mg/dL after dinner and nauseous"
 
-RAG (default):
-What is the plate method?
-Summarize pre-meal glucose targets from my docs.
+Weather:
+"weather: Singapore"
 
-Glucose triage (educational):
-glucose: 3.2 mmol/L before breakfast shaky
-7.8 after dinner (unit inferred if omitted)
-220 mg/dL after dinner and nauseous
+SQL:
+"sql: SELECT name, price FROM products WHERE category='device'"
 
-Weather: Singapore
+Recommender:
+"recommend a case for insulin pens"
 
-SQL (read-only): sql: SELECT name, price FROM products WHERE category='device'
+Text-to-Image:
+"image: plate method visual, A4 portrait, clean infographic"
 
-Recommender: recommend a case for insulin pens
-
-Text-to-image:
-image: plate method visual for type 2 diabetes, clean infographic, A4 portrait
-image: 7-day diabetes-friendly meal plan calendar, clean grid, A4 portrait
-
-Curl samples
+🧪 Curl Examples
 curl -s -X POST http://127.0.0.1:9000/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"weather: Singapore"}'
 
-curl -s -X POST http://127.0.0.1:9000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"image: plate method infographic, A4 portrait"}'
+🔍 Endpoints Summary
+| Method   | Route                  | Description           |
+| :------- | :--------------------- | :-------------------- |
+| **GET**  | `/`                    | Landing page          |
+| **GET**  | `/chat.html`           | Chat UI               |
+| **GET**  | `/upload.html`         | Upload documents      |
+| **POST** | `/chat`                | Chat API              |
+| **POST** | `/upload`              | File upload API       |
+| **GET**  | `/debug/status`        | Vector index status   |
+| **GET**  | `/debug/replicate`     | Check Replicate token |
+| **GET**  | `/debug/replicate/run` | Generate test image   |
+| **GET**  | `/docs`, `/redoc`      | Auto API docs         |
 
-== Endpoints ==
+✅ Capstone Requirements Fulfillment
+1. Conversational Interface
 
-GET / — Landing page
+Multi-turn chat using deque-based rolling memory (MAX_TURNS=6).
+Supports per-session memory and multiple user sessions.
 
-GET /chat.html — Chat UI (inline images, Enter-to-send, Clear)
+2. Document Querying (RAG)
 
-GET /upload.html — Upload docs (PDF/TXT)
+Uploads PDFs/TXT → chunked → embedded (MiniLM) → stored in Chroma.
+Retrieval-based contextual responses with citations.
 
-POST /chat — Chat API: {"message": "...", "session_id": "optional"}
+3. Image Generation
 
-POST /upload — Upload API (multipart form)
+image: prefix triggers Replicate (black-forest-labs/flux-dev) for educational visuals.
+Prompt templates include: subject + style + layout + audience.
 
-GET /debug/status — Vector index count & directory
+4. Multi-Agent Coordination
 
-GET /debug/replicate — Replicate token presence
+Controller routes requests:
 
-GET /debug/replicate/run — Test image generation
+weather: → WeatherAPI
 
-GET /docs | GET /redoc — Auto API docs
-===============================================================
-Capstone Requirements Fulfillment 
-===============================================================
-== Conversational Interface ==
+sql: → SQLite
 
-Criterion: Supports multi-turn, coherent dialogue with limited memory.
+recommend: → MiniLM recommender
 
-Browser chat at /chat.html; rolling memory:
+image: → Replicate
 
-histories = defaultdict(lambda: deque([], maxlen=MAX_TURNS))
-MAX_TURNS = 6
+glucose: → Triage
 
-Controller/RAG composes a compact preamble from recent turns.
+fallback → RAG
 
-Optional session_id supports multiple sessions.
+Agents can collaborate (e.g., Weather + Recommender).
 
-== Document Querying (RAG) ==
+5. Final Technical Report Summary
 
-Criterion: Users can upload documents; the assistant answers contextually using RAG.
+Backend: FastAPI
+Agents: RAG, Weather, SQL, Recommender, Image, Glucose
+Memory: Short-term deque buffer
+Persistence: Chroma (persistent vector DB)
 
-Upload via /upload.html (PDF/TXT), chunk with RecursiveCharacterTextSplitter.
+🧩 Debugging & Testing Notes
+| Issue                     | Fix                                                      |
+| :------------------------ | :------------------------------------------------------- |
+| Landing page not updating | Remove duplicate `@app.get("/")`, restart, hard-refresh  |
+| Upload fails              | `pip install python-multipart`                           |
+| Weather 401               | Check WeatherAPI key                                     |
+| Image generation fails    | Verify `REPLICATE_API_TOKEN`                             |
+| OpenAI error              | Confirm `OPENAI_API_KEY`                                 |
+| Vector index not updating | Ensure document text is extractable (not scanned images) |
 
-Embed using SentenceTransformerEmbeddings("all-MiniLM-L6-v2").
-
-Persist in Chroma; retrieve top-k and answer with citations.
-
-== Image Generation with Prompt Engineering ==
-
-Criterion: Accepts text prompts and generates images using Replicate API. Includes prompt experimentation.
-
-image: ... routes to t2i() → Replicate (black-forest-labs/flux-dev).
-
-Inline rendering in chat; prompt tips: subject + style + layout + audience.
-
-Debug routes verify token and perform test runs.
-
-== Multi-Agent Coordination via Controller ==
-
-Criterion: Controller manages and routes tasks to agents (Weather, SQL, Recommender). Agents collaborate for coherent results.
-
-Controller routes by prefix or pattern:
-
-== weather: → WeatherAPI ==
-
-== sql: → SQLite ==
-
-== recommend → MiniLM similarity ==
-
-== image: → Replicate ==
-
-== glucose: / unit patterns → Triage ==
-
-Otherwise → RAG
-
-== Agents can be combined in a single response (e.g., RAG + Image, SQL + RAG). ==
-
-== Final Technical Report ==
-System Design Overview
-
-|Backend|: FastAPI app (app.py) with chat/upload/debug routes and agents.
-
-|Agents|: RAG (Chroma + MiniLM), Weather (WeatherAPI), SQL (SQLite demo), Recommender (MiniLM), T2I (Replicate), Glucose Triage (rules).
-
-|Memory|: Per-session rolling buffer (MAX_TURNS).
-
-|Persistence|: Chroma index at INDEX_DIR.
-
-++Integration Process++
-
-Base FastAPI skeleton (chat/upload/landing).
-
-|RAG|: loaders → splitter → embeddings → Chroma retriever.
-
-|Controller|: keyword routing; added agents progressively.
-
-|UI|: inline image rendering; stacked, compact buttons on landing page.
-
-|Tokens|: .env; debug routes for status checks.
-
-Debugging & Testing
-
-Fixed Python 3.9 typing (Optional[...] vs | None).
-
-Replicate test route (/debug/replicate/run) for quick diagnosis.
-
-RAG persistence validated with /debug/status.
-
-Frontend cache bust via hard refresh (Cmd+Shift+R).
-========================
-Reflections
-========================
-Multi-agent + RAG provides practical clinical education value.
-
-Modularity enables future agents (appointments, medication info).
-
-Safety: non-diagnostic framing; staff review recommended for patient-facing materials.
-
-Lessons: dependency/version control; environment config; useful debug endpoints.
-
-== Troubleshooting ==
-
-Landing page didn’t change
-Ensure only one @app.get("/") route exists.
-Restart server; hard refresh browser.
-Upload fails with python-multipart
-pip install python-multipart
-Weather 401
-Use WeatherAPI.com key; restart server.
-Image generation fails
-Set REPLICATE_API_TOKEN; test GET /debug/replicate/run.
-OpenAI errors
-Confirm OPENAI_API_KEY; verify OPENAI_MODEL.
-Vector index stuck
-Ensure docs are text-based (not scanned images); check /debug/status.
-=====================================
-Project Structure (simplified)
-=====================================
+🧱 Project Structure
 .
-├── app.py                  # FastAPI app (routes, controller, agents, triage, RAG)
+├── app.py               # FastAPI app (routes, agents, controller)
 ├── requirements.txt
-├── Procfile                # (for Render/Heroku, optional)
-├── chroma_index/           # (created at runtime; persistent vector store)
+├── Procfile             # (for Render/Heroku)
+├── chroma_index/        # persistent vector DB
 └── README.md
 
-== Roadmap ==
+🚀 Roadmap
 
-Role-based access (patient vs staff), auth
+✅ Current: Browser-based multi-agent assistant
 
-OCR for scanned PDFs
+🔜 Add CSV ingestion (structured RAG)
 
-Streaming responses; richer chat UI
+🔜 Role-based access (staff vs patient)
 
-Structured education datasets (CSV/JSON) as RAG sources
+🔜 OCR for scanned PDFs
 
-Multilingual support
+🔜 Multilingual responses
 
-== License & Acknowledgements ==
+🔜 Render deployment
 
-Built with FastAPI, Chroma, Sentence-Transformers, Replicate, and OpenAI.
-Clinical targets align with common outpatient guidance; this app remains educational only.
+⚖️ License & Acknowledgements
+
+Built with ❤️ using FastAPI, Chroma, Sentence-Transformers, Replicate, and OpenAI.
+Clinical references align with public outpatient guidelines.
+
+This assistant is for educational support only, not diagnostic use.
+
+🙏 Acknowledgements
+
+This project was developed as part of my Capstone Project (Emeritus Data Science & AI Program).
+
+Special thanks to OpenAI’s ChatGPT (GPT-5) for providing technical guidance, debugging support, and writing assistance during development.
+
+All code implementation, testing, and integration were performed independently by the author, with ChatGPT serving as a collaborative assistant for learning and documentation.
+
+
+
+
